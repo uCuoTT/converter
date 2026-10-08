@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ConvertiTutto</string>
+    <string name="title_activity_main">ConvertiTutto</string>
+    <string name="package_name">com.convertitutto.app</string>
+    <string name="custom_url_scheme">com.convertitutto.app</string>
+</resources>

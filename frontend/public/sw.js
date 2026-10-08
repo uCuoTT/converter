@@ -62,7 +62,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   // Never touch the dev server internals / HMR / API
-  if (/^\/(api|@vite|@id|@fs|@react-refresh|__)/.test(url.pathname) || request.headers.get("upgrade")) return;
+  if (/^\/(api|@vite|@id|@fs|@react-refresh|__|download\/)/.test(url.pathname) || request.headers.get("upgrade")) return;
 
   if (url.pathname.startsWith("/ffmpeg/")) {
     event.respondWith(cacheFirst(request, FFMPEG_CACHE).then(withIsolation));

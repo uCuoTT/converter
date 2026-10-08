@@ -65,10 +65,17 @@ export function defaultTarget(kind: MediaKind, file: File): TargetFormat | null 
   return null;
 }
 
-export function outputName(name: string, target: TargetFormat): string {
+export function outputName(name: string, target: TargetFormat, suffix = "convertito"): string {
   const i = name.lastIndexOf(".");
   const base = (i > 0 ? name.slice(0, i) : name) || "file";
-  return `${base}_convertito.${target}`;
+  return `${base}_${suffix}.${target}`;
+}
+
+/** e.g. "-63%" / "+12%" — output size vs input size. */
+export function sizeDelta(from: number, to: number): string {
+  if (!from) return "";
+  const d = Math.round(((to - from) / from) * 100);
+  return `${d > 0 ? "+" : d < 0 ? "−" : ""}${Math.abs(d)}%`;
 }
 
 export function formatBytes(n: number): string {

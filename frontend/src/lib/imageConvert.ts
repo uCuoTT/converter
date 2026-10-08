@@ -4,9 +4,16 @@ import { jsPDF } from "jspdf";
  * or on the main thread as a fallback for browsers without OffscreenCanvas. */
 
 export type ImageTarget = "jpg" | "png" | "webp";
+
+/** quality: 0..1 for JPG/WEBP/PDF pages (PNG is lossless). maxSide: longest side in px, null = original. */
+export interface ImageOptions {
+  quality: number;
+  maxSide: number | null;
+}
+
 export type ImageJob =
-  | { type: "convert"; file: Blob; format: ImageTarget }
-  | { type: "pdf"; files: Blob[] };
+  | { type: "convert"; file: Blob; format: ImageTarget; options: ImageOptions }
+  | { type: "pdf"; files: Blob[]; options: ImageOptions };
 
 const MIME: Record<ImageTarget, string> = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" };
 const MAX_AREA = 16_000_000; // iOS Safari canvas limit is ~16.7MP
@@ -49,14 +56,14 @@ async function decode(blob: Blob): Promise<ImageBitmap> {
   }
 }
 
-function fit(w: number, h: number, maxSide?: number) {
+function fit(w: number, h: number, maxSide: number | null) {
   let s = 1;
   if (w * h > MAX_AREA) s = Math.sqrt(MAX_AREA / (w * h));
   if (maxSide) s = Math.min(s, maxSide / Math.max(w, h));
   return { w: Math.max(1, Math.round(w * s)), h: Math.max(1, Math.round(h * s)) };
 }
 
-async function render(bmp: ImageBitmap, format: ImageTarget, maxSide?: number) {
+async function render(bmp: ImageBitmap, format: ImageTarget, maxSide: number | null, quality: number) {
   const { w, h } = fit(bmp.width, bmp.height, maxSide);
   const canvas = makeCanvas(w, h);
   const ctx = ctx2d(canvas);
@@ -66,16 +73,21 @@ async function render(bmp: ImageBitmap, format: ImageTarget, maxSide?: number) {
     ctx.fillRect(0, 0, w, h);
   }
   ctx.drawImage(bmp, 0, 0, w, h);
-  const blob = await canvasToBlob(canvas, MIME[format], format === "png" ? undefined : 0.92);
+  const blob = await canvasToBlob(canvas, MIME[format], format === "png" ? undefined : quality);
   return { blob, w, h };
 }
 
-export async function convertImage(file: Blob, format: ImageTarget, onProgress: (p: number) => void): Promise<Blob> {
+export async function convertImage(
+  file: Blob,
+  format: ImageTarget,
+  options: ImageOptions,
+  onProgress: (p: number) => void,
+): Promise<Blob> {
   onProgress(0.1);
   const bmp = await decode(file);
   onProgress(0.45);
   try {
-    const { blob } = await render(bmp, format);
+    const { blob } = await render(bmp, format, options.maxSide, options.quality);
     if (blob.type !== MIME[format]) {
       throw new Error(`Questo browser non supporta la codifica ${format.toUpperCase()}`);
     }
@@ -86,14 +98,15 @@ export async function convertImage(file: Blob, format: ImageTarget, onProgress: 
   }
 }
 
-/** One A4 page per image, orientation follows the image, centered with margins. */
-export async function imagesToPdf(files: Blob[], onProgress: (p: number) => void): Promise<Blob> {
+/** One A4 page per image (in the given order), orientation follows the image, centered with margins. */
+export async function imagesToPdf(files: Blob[], options: ImageOptions, onProgress: (p: number) => void): Promise<Blob> {
+  const maxSide = Math.min(options.maxSide ?? PDF_MAX_SIDE, PDF_MAX_SIDE);
   let doc: jsPDF | null = null;
   for (let i = 0; i < files.length; i++) {
     const bmp = await decode(files[i]);
     try {
       const orientation = bmp.width > bmp.height ? "landscape" : "portrait";
-      const { blob, w, h } = await render(bmp, "jpg", PDF_MAX_SIDE);
+      const { blob, w, h } = await render(bmp, "jpg", maxSide, options.quality);
       const bytes = new Uint8Array(await blob.arrayBuffer());
       if (!doc) doc = new jsPDF({ orientation, unit: "mm", format: "a4", compress: true });
       else doc.addPage("a4", orientation);
@@ -113,5 +126,7 @@ export async function imagesToPdf(files: Blob[], onProgress: (p: number) => void
 }
 
 export function runImageJobInline(job: ImageJob, onProgress: (p: number) => void): Promise<Blob> {
-  return job.type === "pdf" ? imagesToPdf(job.files, onProgress) : convertImage(job.file, job.format, onProgress);
+  return job.type === "pdf"
+    ? imagesToPdf(job.files, job.options, onProgress)
+    : convertImage(job.file, job.format, job.options, onProgress);
 }

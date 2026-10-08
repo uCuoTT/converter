@@ -54,3 +54,14 @@ frontend/
 - Jobs run sequentially; Cancel terminates the FFmpeg worker (frees all wasm memory).
 - Images capped at 16MP (iOS canvas limit); PDF pages downscaled to 2480px long side (~300dpi A4).
 - Warning toast for files > 400MB.
+
+## Android APK (Capacitor 7)
+- `capacitor.config.json` (appId `com.convertitutto.app`, webDir `dist`), native project in `frontend/android/`.
+- Build: `cd frontend && yarn build:apk` -> `public/download/ConvertiTutto.apk` (debug-signed, served at `/download/ConvertiTutto.apk`).
+- Toolchain (git-ignored) in `/app/.android-toolchain`: Temurin JDK 21, Android SDK 35 (platform + build-tools 35.0.0),
+  Gradle cache. Build host is ARM64 Linux: Google's aapt2 is x86_64-only, so build-tools binaries are replaced with the
+  static aarch64 build from lzhiyong/android-sdk-tools 35.0.2 and `android.aapt2FromMavenOverride` points to it.
+- In the APK: the web bundle ships in assets (offline from first launch), only the single-thread FFmpeg core is bundled
+  (WebView is not cross-origin isolated), no Service Worker, `largeHeap=true`.
+- "Salva nel telefono" in the APK writes via @capacitor/filesystem in 3MB chunks to `Documenti/ConvertiTutto/`
+  (fallback: app folder + share sheet); Share uses @capacitor/share. `src/lib/native.ts` -> `isNative()`.

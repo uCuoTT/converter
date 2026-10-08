@@ -1,0 +1,10 @@
+{
+  "appId": "com.convertitutto.app",
+  "appName": "ConvertiTutto",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0B0F17"
+  },
+  "backgroundColor": "#0B0F17"
+}

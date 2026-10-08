@@ -11,6 +11,14 @@ Single route `/` (catch-all `*`) -> `src/pages/Converter.tsx`. See `frontend/PWA
 3. >=2 images targeting PDF -> "Unisci in PDF multipagina A4" checkbox (default ON) -> one merged PDF (`merged-pdf-result`).
 4. "Converti Ora (n)" -> sequential conversion with per-item + overall progress; cancel button stops (terminates workers).
 5. Done -> per-item "Salva" / Share, bottom "Salva nel telefono (n)" downloads all results.
+6. PDF page order (`pdf-page-order-list`): drag grip handle (`pdf-page-drag-handle-{i}`, pointer capture) or up/down arrows.
+   Reorders the image items in the queue; an already merged PDF is discarded and rebuilt on next "Converti Ora".
+7. "Comprimi per WhatsApp" (`whatsapp-preset-btn-{i}` on video cards, or `format-option-whatsapp` in sheet):
+   MP4 H.264, long side ≤1280 (720p), ≤30fps, crf 30 / maxrate 1.2M, AAC 96k stereo; output `<name>_whatsapp.mp4`.
+8. "Impostazioni foto" (`image-settings-panel`, shown when queue has images): quality chips 92/80/65/45
+   (`image-quality-{n}`) + max long side Originale/2560/1920/1280/1024/800 (`image-maxsize-{px|original}`).
+   Applies to JPG/WEBP/PDF pages (PNG lossless; PDF pages capped at 2480px). Changing settings resets done photos.
+   Done items show size delta badge (`item-size-delta-{i}`).
 
 ## Engines
 - Audio/video: ffmpeg.wasm 0.12 (core files in `public/ffmpeg/{mt,st}`), multi-thread when crossOriginIsolated else single-thread.
@@ -19,3 +27,10 @@ Single route `/` (catch-all `*`) -> `src/pages/Converter.tsx`. See `frontend/PWA
 
 ## Test fixtures
 `/app/tests/fixtures/media/foto1.png`, `foto2.png`, `tono.wav` (2s sine).
+
+## Android APK
+Capacitor 7 wrapper (`frontend/android`, `capacitor.config.json`). `yarn build:apk` -> `/download/ConvertiTutto.apk`
+(debug-signed, ~17MB, single-thread FFmpeg bundled). Web shows `download-apk-link` (hidden when `isNative()`).
+Native save -> Documents/ConvertiTutto via @capacitor/filesystem; share via @capacitor/share. No SW in native.
+Toolchain at /app/.android-toolchain (ARM64 host, aapt2 override in android/gradle.properties). See frontend/PWA.md.
+Pending (user deferred): Gemini integration.

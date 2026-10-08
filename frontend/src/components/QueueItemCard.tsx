@@ -7,11 +7,12 @@ import {
   Download,
   FileImage,
   FileVideo,
+  MessageCircle,
   Music,
   Share2,
   X,
 } from "lucide-react";
-import { FORMATS, extOf, formatBytes } from "@/lib/formats";
+import { FORMATS, extOf, formatBytes, sizeDelta } from "@/lib/formats";
 import { engineStore } from "@/lib/ffmpeg";
 import { canShareFiles, saveToDevice, shareResult } from "@/lib/save";
 import type { QueueItem } from "@/hooks/useConverter";
@@ -22,6 +23,7 @@ interface Props {
   locked: boolean;
   onPickFormat: (id: string) => void;
   onRemove: (id: string) => void;
+  onToggleWhatsapp: (id: string) => void;
 }
 
 const KIND_ICON = { image: FileImage, video: FileVideo, audio: Music, unknown: FileImage };
@@ -32,7 +34,8 @@ const KIND_TINT = {
   unknown: "bg-slate-700 text-slate-300",
 };
 
-export default function QueueItemCard({ item, index, locked, onPickFormat, onRemove }: Props) {
+export default function QueueItemCard({ item, index, locked, onPickFormat, onRemove, onToggleWhatsapp }: Props) {
+  const isWa = item.preset === "whatsapp" && item.target === "mp4";
   const Icon = KIND_ICON[item.kind];
   const engine = useSyncExternalStore(engineStore.subscribe, engineStore.get, engineStore.get);
   const converting = item.status === "converting";
@@ -79,6 +82,7 @@ export default function QueueItemCard({ item, index, locked, onPickFormat, onRem
           aria-label="Scegli formato di destinazione"
         >
           → {item.target ? FORMATS[item.target].label : "?"}
+          {isWa ? <span className="text-[10px] text-emerald-300">WA</span> : null}
           <ChevronDown className="size-4 text-slate-400" />
         </button>
         {!converting && !locked ? (
@@ -93,6 +97,24 @@ export default function QueueItemCard({ item, index, locked, onPickFormat, onRem
           </button>
         ) : null}
       </div>
+
+      {item.kind === "video" && !converting && item.status !== "done" ? (
+        <button
+          type="button"
+          data-testid={`whatsapp-preset-btn-${index}`}
+          disabled={locked}
+          onClick={() => onToggleWhatsapp(item.id)}
+          aria-pressed={isWa}
+          className={`mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition-[transform,border-color,background-color] duration-150 active:scale-[0.98] disabled:opacity-50 ${
+            isWa
+              ? "border-emerald-500/70 bg-emerald-600/20 text-emerald-200"
+              : "border-slate-700 bg-[#1A2436] text-slate-200 hover:border-emerald-600/60"
+          }`}
+        >
+          <MessageCircle className="size-4" />
+          {isWa ? "WhatsApp attivo · 720p, ~1 Mbps" : "Comprimi per WhatsApp"}
+        </button>
+      ) : null}
 
       {converting ? (
         <div className="mt-3" data-testid={`item-progress-${index}`}>
@@ -122,6 +144,16 @@ export default function QueueItemCard({ item, index, locked, onPickFormat, onRem
             <CheckCircle2 className="size-4" />
             {item.merged ? "Incluso nel PDF unito" : `${item.result?.name} · ${formatBytes(item.result?.blob.size ?? 0)}`}
           </span>
+          {item.result ? (
+            <span
+              data-testid={`item-size-delta-${index}`}
+              className={`rounded-md px-1.5 py-0.5 font-mono text-[11px] font-bold ${
+                item.result.blob.size <= item.file.size ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"
+              }`}
+            >
+              {sizeDelta(item.file.size, item.result.blob.size)}
+            </span>
+          ) : null}
           {item.result ? (
             <>
               {sharable ? (

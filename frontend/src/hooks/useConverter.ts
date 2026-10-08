@@ -9,9 +9,9 @@ import {
   type MediaKind,
   type TargetFormat,
 } from "@/lib/formats";
-import { cancelFFmpeg, convertMedia } from "@/lib/ffmpeg";
+import { cancelFFmpeg, convertMedia, type VideoPreset } from "@/lib/ffmpeg";
 import { cancelImageJobs, runImageJob } from "@/lib/imageClient";
-import type { ImageTarget } from "@/lib/imageConvert";
+import type { ImageOptions, ImageTarget } from "@/lib/imageConvert";
 import { saveAllToDevice, type ConvertResult } from "@/lib/save";
 
 export type ItemStatus = "idle" | "converting" | "done" | "error";
@@ -21,6 +21,8 @@ export interface QueueItem {
   file: File;
   kind: MediaKind;
   target: TargetFormat | null;
+  preset: VideoPreset;
+  thumb: string | null; // object URL preview for images
   status: ItemStatus;
   progress: number;
   stage: string;
@@ -29,6 +31,8 @@ export interface QueueItem {
   merged: boolean;
 }
 
+export const DEFAULT_IMAGE_OPTIONS: ImageOptions = { quality: 0.92, maxSide: null };
+
 const LARGE_FILE = 400 * 1024 * 1024;
 
 const uid = () =>
@@ -36,13 +40,33 @@ const uid = () =>
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+export const isPdfCandidate = (i: QueueItem) => i.kind === "image" && i.target === "pdf";
+
+const resetItem = (i: QueueItem): QueueItem => {
+  if (i.result) URL.revokeObjectURL(i.result.url);
+  return { ...i, status: "idle", progress: 0, stage: "", result: null, error: null, merged: false };
+};
+
+const disposeItem = (i: QueueItem) => {
+  if (i.result) URL.revokeObjectURL(i.result.url);
+  if (i.thumb) URL.revokeObjectURL(i.thumb);
+};
+
 export function useConverter() {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [mergePdf, setMergePdf] = useState(true);
+  const [imageOptions, setImageOptionsState] = useState<ImageOptions>(DEFAULT_IMAGE_OPTIONS);
   const [running, setRunning] = useState(false);
   const [overall, setOverall] = useState(0);
   const [merged, setMerged] = useState<ConvertResult | null>(null);
   const cancelRef = useRef(false);
+
+  const clearMerged = useCallback(() => {
+    setMerged((m) => {
+      if (m) URL.revokeObjectURL(m.url);
+      return null;
+    });
+  }, []);
 
   const patch = useCallback((ids: string[], p: Partial<QueueItem>) => {
     setItems((prev) => prev.map((i) => (ids.includes(i.id) ? { ...i, ...p } : i)));
@@ -64,6 +88,8 @@ export function useConverter() {
         file,
         kind,
         target: defaultTarget(kind, file),
+        preset: "standard",
+        thumb: kind === "image" ? URL.createObjectURL(file) : null,
         status: "idle",
         progress: 0,
         stage: "",
@@ -75,52 +101,106 @@ export function useConverter() {
     if (next.length) setItems((prev) => [...prev, ...next]);
   }, []);
 
-  const resetItem = (i: QueueItem): QueueItem => {
-    if (i.result) URL.revokeObjectURL(i.result.url);
-    return { ...i, status: "idle", progress: 0, stage: "", result: null, error: null, merged: false };
-  };
-
-  const setTarget = useCallback((id: string, target: TargetFormat) => {
-    setItems((prev) => prev.map((i) => (i.id === id && i.status !== "converting" ? { ...resetItem(i), target } : i)));
-  }, []);
-
-  const applyToAll = useCallback((target: TargetFormat) => {
+  const setTarget = useCallback((id: string, target: TargetFormat, preset: VideoPreset = "standard") => {
     setItems((prev) =>
-      prev.map((i) =>
-        ALLOWED[i.kind].includes(target) && i.status !== "converting" && i.target !== target
-          ? { ...resetItem(i), target }
-          : i,
-      ),
+      prev.map((i) => (i.id === id && i.status !== "converting" ? { ...resetItem(i), target, preset } : i)),
     );
   }, []);
 
-  const remove = useCallback((id: string) => {
-    setItems((prev) => {
-      const it = prev.find((i) => i.id === id);
-      if (it?.result) URL.revokeObjectURL(it.result.url);
-      return prev.filter((i) => i.id !== id);
-    });
+  /** One-tap toggle of the WhatsApp compression preset on a video item. */
+  const toggleWhatsapp = useCallback((id: string) => {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.id !== id || i.kind !== "video" || i.status === "converting") return i;
+        const on = !(i.preset === "whatsapp" && i.target === "mp4");
+        return { ...resetItem(i), target: "mp4", preset: on ? "whatsapp" : "standard" };
+      }),
+    );
   }, []);
+
+  const applyToAll = useCallback((target: TargetFormat, preset: VideoPreset = "standard") => {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (!ALLOWED[i.kind].includes(target) || i.status === "converting") return i;
+        const p: VideoPreset = i.kind === "video" ? preset : "standard";
+        return i.target === target && i.preset === p ? i : { ...resetItem(i), target, preset: p };
+      }),
+    );
+  }, []);
+
+  /** New photo settings -> already converted photos go back to the queue to be re-converted. */
+  const setImageOptions = useCallback(
+    (opts: ImageOptions) => {
+      setImageOptionsState(opts);
+      setItems((prev) => prev.map((i) => (i.kind === "image" && i.status === "done" ? resetItem(i) : i)));
+      clearMerged();
+    },
+    [clearMerged],
+  );
+
+  /** Reorders the PDF pages (image items targeting PDF), keeping every other item in place. */
+  const reorderPdf = useCallback(
+    (ids: string[]) => {
+      const current = items.filter(isPdfCandidate).map((i) => i.id);
+      if (ids.length !== current.length || ids.every((id, k) => id === current[k])) return;
+      setItems((prev) => {
+        const byId = new Map(prev.map((i) => [i.id, i]));
+        const ordered = ids.map((id) => byId.get(id)).filter((i): i is QueueItem => !!i);
+        if (ordered.length !== prev.filter(isPdfCandidate).length) return prev;
+        let k = 0;
+        return prev.map((i) => {
+          if (!isPdfCandidate(i)) return i;
+          const next = ordered[k++];
+          return next.merged ? resetItem(next) : next;
+        });
+      });
+      clearMerged();
+    },
+    [items, clearMerged],
+  );
+
+  const movePdfPage = useCallback(
+    (id: string, dir: -1 | 1) => {
+      const ids = items.filter(isPdfCandidate).map((i) => i.id);
+      const from = ids.indexOf(id);
+      const to = from + dir;
+      if (from < 0 || to < 0 || to >= ids.length) return;
+      [ids[from], ids[to]] = [ids[to], ids[from]];
+      reorderPdf(ids);
+    },
+    [items, reorderPdf],
+  );
+
+  const remove = useCallback(
+    (id: string) => {
+      setItems((prev) => {
+        const it = prev.find((i) => i.id === id);
+        if (it) disposeItem(it);
+        return prev.filter((i) => i.id !== id);
+      });
+      if (items.find((i) => i.id === id)?.merged) clearMerged();
+    },
+    [items, clearMerged],
+  );
 
   const clearAll = useCallback(() => {
     setItems((prev) => {
-      prev.forEach((i) => i.result && URL.revokeObjectURL(i.result.url));
+      prev.forEach(disposeItem);
       return [];
     });
-    setMerged((m) => {
-      if (m) URL.revokeObjectURL(m.url);
-      return null;
-    });
+    clearMerged();
     setOverall(0);
-  }, []);
+  }, [clearMerged]);
 
   const convertAll = useCallback(async () => {
     const pendingItems = items.filter((i) => i.target && (i.status === "idle" || i.status === "error"));
     if (!pendingItems.length) return;
-    const pdfImages = pendingItems.filter((i) => i.kind === "image" && i.target === "pdf");
-    const group = mergePdf && pdfImages.length >= 2 ? pdfImages : [];
+    const candidates = items.filter(isPdfCandidate);
+    // merging: any pending page re-builds the whole PDF in the user's page order
+    const group = mergePdf && candidates.length >= 2 && pendingItems.some(isPdfCandidate) ? candidates : [];
     const singles = pendingItems.filter((i) => !group.includes(i));
     const total = singles.length + (group.length ? 1 : 0);
+    const options = imageOptions;
     let done = 0;
     let failed = 0;
     const tick = (p: number) => setOverall((done + p) / total);
@@ -143,15 +223,15 @@ export function useConverter() {
             patch([it.id], { stage: target === "pdf" ? "Impaginazione PDF…" : "Elaborazione immagine…" });
             blob = await runImageJob(
               target === "pdf"
-                ? { type: "pdf", files: [it.file] }
-                : { type: "convert", file: it.file, format: target as ImageTarget },
+                ? { type: "pdf", files: [it.file], options }
+                : { type: "convert", file: it.file, format: target as ImageTarget, options },
               onP,
             );
           } else {
-            blob = await convertMedia(it.file, target, onP, (stage) => patch([it.id], { stage }));
+            blob = await convertMedia(it.file, target, onP, (stage) => patch([it.id], { stage }), it.preset);
           }
-          const result = { blob, name: outputName(it.file.name, target), url: URL.createObjectURL(blob) };
-          patch([it.id], { status: "done", progress: 1, stage: "Completato", result });
+          const name = outputName(it.file.name, target, it.preset === "whatsapp" && target === "mp4" ? "whatsapp" : "convertito");
+          patch([it.id], { status: "done", progress: 1, stage: "Completato", result: { blob, name, url: URL.createObjectURL(blob) } });
         } catch (e) {
           if (cancelRef.current) {
             patch([it.id], { status: "idle", progress: 0, stage: "" });
@@ -165,9 +245,9 @@ export function useConverter() {
 
       if (group.length && !cancelRef.current) {
         const ids = group.map((g) => g.id);
-        patch(ids, { status: "converting", progress: 0, stage: "Unione in PDF A4…", error: null });
+        patch(ids, { status: "converting", progress: 0, stage: "Unione in PDF A4…", error: null, merged: false });
         try {
-          const blob = await runImageJob({ type: "pdf", files: group.map((g) => g.file) }, (p) => {
+          const blob = await runImageJob({ type: "pdf", files: group.map((g) => g.file), options }, (p) => {
             patch(ids, { progress: p });
             tick(p);
           });
@@ -192,7 +272,7 @@ export function useConverter() {
       else if (failed) toast.error(`${failed} conversione/i non riuscita/e`);
       else toast.success("Conversione completata! Ora puoi salvare nel telefono.");
     }
-  }, [items, mergePdf, patch]);
+  }, [items, mergePdf, imageOptions, patch]);
 
   const cancel = useCallback(() => {
     cancelRef.current = true;
@@ -208,21 +288,28 @@ export function useConverter() {
   const saveAll = useCallback(() => saveAllToDevice(results), [results]);
 
   const pendingCount = items.filter((i) => i.target && (i.status === "idle" || i.status === "error")).length;
-  const pdfImageCount = items.filter((i) => i.kind === "image" && i.target === "pdf" && i.status !== "done").length;
+  const pdfPages = items.filter(isPdfCandidate);
+  const hasImages = items.some((i) => i.kind === "image");
 
   return {
     items,
     mergePdf,
     setMergePdf,
+    imageOptions,
+    setImageOptions,
     running,
     overall,
     merged,
     results,
     pendingCount,
-    pdfImageCount,
+    pdfPages,
+    hasImages,
     addFiles,
     setTarget,
+    toggleWhatsapp,
     applyToAll,
+    reorderPdf,
+    movePdfPage,
     remove,
     clearAll,
     convertAll,

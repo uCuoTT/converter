@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { AnimatePresence } from "motion/react";
-import { CheckCircle2, Download, FileText, Share2, Trash2 } from "lucide-react";
+import { CheckCircle2, Download, Share2, Smartphone, Trash2 } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
-import { Checkbox } from "@/components/ui/checkbox";
 import HeaderStatus from "@/components/HeaderStatus";
 import FilePicker from "@/components/FilePicker";
 import QueueItemCard from "@/components/QueueItemCard";
 import FormatBottomSheet from "@/components/FormatBottomSheet";
 import BottomActionBar from "@/components/BottomActionBar";
+import ImageSettings from "@/components/ImageSettings";
+import PdfPageOrder from "@/components/PdfPageOrder";
 import { useConverter } from "@/hooks/useConverter";
 import { FORMATS, GROUP_LABEL, formatBytes, type FormatGroup } from "@/lib/formats";
 import { canShareFiles, saveToDevice, shareResult } from "@/lib/save";
 import { isIOS, isStandalone } from "@/lib/pwa";
+import { isNative } from "@/lib/native";
 
 const SUPPORTED: FormatGroup[] = ["video", "audio", "image"];
 
@@ -67,30 +69,26 @@ export default function Converter() {
                   locked={c.running}
                   onPickFormat={setSheetId}
                   onRemove={c.remove}
+                  onToggleWhatsapp={c.toggleWhatsapp}
                 />
               ))}
             </AnimatePresence>
           </ul>
         ) : null}
 
-        {c.pdfImageCount >= 2 ? (
-          <label
-            data-testid="merge-pdf-toggle"
-            className="mb-3 flex cursor-pointer items-center gap-3 rounded-2xl border border-cyan-800/50 bg-cyan-950/30 p-4"
-          >
-            <Checkbox
-              data-testid="merge-pdf-checkbox"
-              checked={c.mergePdf}
-              disabled={c.running}
-              onCheckedChange={(v) => c.setMergePdf(v === true)}
-              className="size-6"
-            />
-            <span className="flex-1">
-              <span className="block text-sm font-semibold text-cyan-100">Unisci in PDF multipagina A4</span>
-              <span className="block text-xs text-cyan-300/80">{c.pdfImageCount} immagini → un unico documento</span>
-            </span>
-            <FileText className="size-5 text-cyan-300" />
-          </label>
+        {c.hasImages ? (
+          <ImageSettings value={c.imageOptions} locked={c.running} onChange={c.setImageOptions} />
+        ) : null}
+
+        {c.pdfPages.length >= 2 ? (
+          <PdfPageOrder
+            pages={c.pdfPages}
+            merge={c.mergePdf}
+            locked={c.running}
+            onToggleMerge={c.setMergePdf}
+            onReorder={c.reorderPdf}
+            onMove={c.movePdfPage}
+          />
         ) : null}
 
         {c.merged ? (
@@ -147,6 +145,23 @@ export default function Converter() {
               <p data-testid="ios-install-hint" className="rounded-2xl border border-slate-800 bg-[#131B2A] p-4 text-sm text-slate-300">
                 Su iPhone: tocca <b>Condividi</b> → <b>Aggiungi alla schermata Home</b> per installare l'app.
               </p>
+            ) : null}
+            {!isNative() ? (
+              <a
+                href="/download/ConvertiTutto.apk"
+                download
+                data-testid="download-apk-link"
+                className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-[#131B2A] p-4 transition-[transform,border-color] duration-150 hover:border-emerald-600/60 active:scale-[0.98]"
+              >
+                <span className="flex size-11 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-300">
+                  <Smartphone className="size-5" />
+                </span>
+                <span className="flex-1">
+                  <span className="block text-sm font-semibold text-slate-100">Scarica l'app Android (APK)</span>
+                  <span className="block text-xs text-slate-400">Funziona offline subito · nessun Play Store</span>
+                </span>
+                <Download className="size-5 text-slate-400" />
+              </a>
             ) : null}
           </section>
         ) : null}

@@ -134,8 +134,18 @@ const CODEC_ARGS: Record<string, string[]> = {
   m4a: ["-vn", "-c:a", "aac", "-b:a", "192k"],
 };
 
-export function buildArgs(input: string, output: string, target: TargetFormat): string[] {
-  const codec = CODEC_ARGS[target];
+export type VideoPreset = "standard" | "whatsapp";
+
+/** "Comprimi per WhatsApp": long side ≤ 1280 (720p), ≤ 30fps, capped bitrate, AAC 96k stereo. */
+const WHATSAPP_ARGS = [
+  "-vf", "scale='if(gt(iw,ih),min(1280,iw),-2)':'if(gt(iw,ih),-2,min(1280,ih))'",
+  "-fpsmax", "30",
+  "-c:v", "libx264", "-preset", "superfast", "-crf", "30", "-maxrate", "1200k", "-bufsize", "2400k",
+  "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k", "-ac", "2", "-movflags", "+faststart",
+];
+
+export function buildArgs(input: string, output: string, target: TargetFormat, preset: VideoPreset = "standard"): string[] {
+  const codec = preset === "whatsapp" && target === "mp4" ? WHATSAPP_ARGS : CODEC_ARGS[target];
   if (!codec) throw new Error(`Formato ${target} non supportato da FFmpeg`);
   return ["-i", input, ...codec, output];
 }
@@ -146,6 +156,7 @@ export async function convertMedia(
   target: TargetFormat,
   onProgress: (p: number) => void,
   onStage: (s: string) => void,
+  preset: VideoPreset = "standard",
 ): Promise<Blob> {
   if (state.phase !== "ready") onStage("Avvio motore FFmpeg…");
   const ff = await getFFmpeg();
@@ -175,7 +186,7 @@ export async function convertMedia(
       inPath = `${dir}/input.${extOf(file.name) || "bin"}`;
       await ff.writeFile(inPath, await fetchFile(file));
     }
-    const code = await ff.exec(buildArgs(inPath, outPath, target));
+    const code = await ff.exec(buildArgs(inPath, outPath, target, preset));
     if (code !== 0) {
       const hint = logs.filter((l) => /error|invalid|not|unsupported/i.test(l)).slice(-2).join(" · ");
       throw new Error(hint ? `FFmpeg: ${hint}` : `FFmpeg ha terminato con codice ${code}`);
