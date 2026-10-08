@@ -9,7 +9,7 @@ import FormatBottomSheet from "@/components/FormatBottomSheet";
 import BottomActionBar from "@/components/BottomActionBar";
 import ImageSettings from "@/components/ImageSettings";
 import PdfPageOrder from "@/components/PdfPageOrder";
-import { useConverter } from "@/hooks/useConverter";
+import { isPdfCandidate, useConverter } from "@/hooks/useConverter";
 import { FORMATS, GROUP_LABEL, formatBytes, type FormatGroup } from "@/lib/formats";
 import { canShareFiles, saveToDevice, shareResult } from "@/lib/save";
 import { isIOS, isStandalone } from "@/lib/pwa";
@@ -70,6 +70,8 @@ export default function Converter() {
                   onPickFormat={setSheetId}
                   onRemove={c.remove}
                   onToggleWhatsapp={c.toggleWhatsapp}
+                  onRename={c.setOutName}
+                  inMergedPdf={c.mergePdf && c.pdfPages.length >= 2 && isPdfCandidate(item)}
                 />
               ))}
             </AnimatePresence>
@@ -88,6 +90,8 @@ export default function Converter() {
             onToggleMerge={c.setMergePdf}
             onReorder={c.reorderPdf}
             onMove={c.movePdfPage}
+            pdfName={c.pdfName}
+            onPdfName={c.setPdfName}
           />
         ) : null}
 

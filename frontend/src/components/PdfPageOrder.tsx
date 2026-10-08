@@ -1,5 +1,5 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { ChevronDown, ChevronUp, FileText, GripVertical } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, GripVertical, Pencil } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { QueueItem } from "@/hooks/useConverter";
 
@@ -10,6 +10,8 @@ interface Props {
   onToggleMerge: (v: boolean) => void;
   onReorder: (ids: string[]) => void;
   onMove: (id: string, dir: -1 | 1) => void;
+  pdfName: string;
+  onPdfName: (name: string) => void;
 }
 
 interface DragState {
@@ -22,7 +24,7 @@ interface DragState {
 const GAP = 8;
 
 /** Drag-to-reorder via pointer capture on the grip handle (touch + mouse), rows shift live. */
-export default function PdfPageOrder({ pages, merge, locked, onToggleMerge, onReorder, onMove }: Props) {
+export default function PdfPageOrder({ pages, merge, locked, onToggleMerge, onReorder, onMove, pdfName, onPdfName }: Props) {
   const [drag, setDrag] = useState<DragState | null>(null);
   const rowRefs = useRef<(HTMLLIElement | null)[]>([]);
   const n = pages.length;
@@ -77,6 +79,26 @@ export default function PdfPageOrder({ pages, merge, locked, onToggleMerge, onRe
 
       {merge ? (
         <div className="mt-4">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-cyan-300/80">Nome del PDF</p>
+          <label className="mb-4 flex h-11 items-center gap-2 rounded-xl border border-slate-800 bg-[#0F172A] px-3 transition-colors duration-150 focus-within:border-cyan-500/70">
+            <Pencil className="size-4 shrink-0 text-slate-500" />
+            <input
+              data-testid="pdf-name-input"
+              value={pdfName}
+              onChange={(e) => onPdfName(e.target.value)}
+              placeholder={`ConvertiTutto_${n}_pagine`}
+              disabled={locked}
+              maxLength={140}
+              aria-label="Nome del PDF unito"
+              enterKeyHint="done"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+              className="min-w-0 flex-1 bg-transparent text-base text-slate-100 outline-none placeholder:text-slate-500 disabled:opacity-60"
+            />
+            <span className="shrink-0 font-mono text-xs font-bold text-slate-400">.pdf</span>
+          </label>
           <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-cyan-300/80">
             Ordine pagine · trascina o usa le frecce
           </p>

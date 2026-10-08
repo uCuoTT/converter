@@ -6,7 +6,8 @@ import {
   defaultTarget,
   detectKind,
   formatBytes,
-  outputName,
+  defaultBaseName,
+  finalName,
   type MediaKind,
   type TargetFormat,
 } from "@/lib/formats";
@@ -30,7 +31,16 @@ export interface QueueItem {
   result: ConvertResult | null;
   error: string | null;
   merged: boolean;
+  outName: string; // user-typed output name (no extension); "" = default name
 }
+
+const suffixFor = (i: Pick<QueueItem, "preset" | "target">) =>
+  i.preset === "whatsapp" && i.target === "mp4" ? "whatsapp" : "convertito";
+
+/** Default output name (no extension) shown as placeholder. */
+export const defaultNameFor = (i: QueueItem) => defaultBaseName(i.file.name, suffixFor(i));
+
+const nameFor = (i: QueueItem) => finalName(i.outName, defaultNameFor(i), i.target as TargetFormat);
 
 export const DEFAULT_IMAGE_OPTIONS: ImageOptions = { quality: 0.92, maxSide: null };
 
@@ -61,6 +71,24 @@ export function useConverter() {
   const [overall, setOverall] = useState(0);
   const [merged, setMerged] = useState<ConvertResult | null>(null);
   const cancelRef = useRef(false);
+  const [pdfName, setPdfNameState] = useState("");
+  const mergedDefaultRef = useRef("ConvertiTutto");
+
+  /** Rename an output: no re-conversion needed, an existing result just gets the new name. */
+  const setOutName = useCallback((id: string, text: string) => {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.id !== id) return i;
+        const next = { ...i, outName: text };
+        return next.result ? { ...next, result: { ...next.result, name: nameFor(next) } } : next;
+      }),
+    );
+  }, []);
+
+  const setPdfName = useCallback((text: string) => {
+    setPdfNameState(text);
+    setMerged((m) => (m ? { ...m, name: finalName(text, mergedDefaultRef.current, "pdf") } : m));
+  }, []);
 
   const clearMerged = useCallback(() => {
     setMerged((m) => {
@@ -97,6 +125,7 @@ export function useConverter() {
         result: null,
         error: null,
         merged: false,
+        outName: "",
       });
     }
     if (next.length) setItems((prev) => [...prev, ...next]);
@@ -235,7 +264,7 @@ export function useConverter() {
               fromImage: it.kind === "image",
             });
           }
-          const name = outputName(it.file.name, target, it.preset === "whatsapp" && target === "mp4" ? "whatsapp" : "convertito");
+          const name = nameFor(it);
           patch([it.id], { status: "done", progress: 1, stage: "Completato", result: { blob, name, url: URL.createObjectURL(blob) } });
         } catch (e) {
           if (cancelRef.current) {
@@ -256,7 +285,8 @@ export function useConverter() {
             patch(ids, { progress: p });
             tick(p);
           });
-          const name = `ConvertiTutto_${group.length}_pagine.pdf`;
+          const name = finalName(pdfName, `ConvertiTutto_${group.length}_pagine`, "pdf");
+          mergedDefaultRef.current = `ConvertiTutto_${group.length}_pagine`;
           setMerged((m) => {
             if (m) URL.revokeObjectURL(m.url);
             return { blob, name, url: URL.createObjectURL(blob) };
@@ -277,7 +307,7 @@ export function useConverter() {
       else if (failed) toast.error(`${failed} conversione/i non riuscita/e`);
       else toast.success("Conversione completata! Ora puoi salvare nel telefono.");
     }
-  }, [items, mergePdf, imageOptions, patch]);
+  }, [items, mergePdf, imageOptions, patch, pdfName]);
 
   const cancel = useCallback(() => {
     cancelRef.current = true;
@@ -320,5 +350,8 @@ export function useConverter() {
     convertAll,
     cancel,
     saveAll,
+    setOutName,
+    pdfName,
+    setPdfName,
   };
 }

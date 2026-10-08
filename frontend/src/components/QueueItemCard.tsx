@@ -9,13 +9,14 @@ import {
   FileVideo,
   MessageCircle,
   Music,
+  Pencil,
   Share2,
   X,
 } from "lucide-react";
 import { FORMATS, extOf, formatBytes, sizeDelta } from "@/lib/formats";
 import { engineStore } from "@/lib/ffmpeg";
 import { canShareFiles, saveToDevice, shareResult } from "@/lib/save";
-import type { QueueItem } from "@/hooks/useConverter";
+import { defaultNameFor, type QueueItem } from "@/hooks/useConverter";
 
 interface Props {
   item: QueueItem;
@@ -24,6 +25,9 @@ interface Props {
   onPickFormat: (id: string) => void;
   onRemove: (id: string) => void;
   onToggleWhatsapp: (id: string) => void;
+  onRename: (id: string, name: string) => void;
+  /** item is a page of the merged PDF: its own name is irrelevant (the PDF has one) */
+  inMergedPdf: boolean;
 }
 
 const KIND_ICON = { image: FileImage, video: FileVideo, audio: Music, unknown: FileImage };
@@ -34,7 +38,7 @@ const KIND_TINT = {
   unknown: "bg-slate-700 text-slate-300",
 };
 
-export default function QueueItemCard({ item, index, locked, onPickFormat, onRemove, onToggleWhatsapp }: Props) {
+export default function QueueItemCard({ item, index, locked, onPickFormat, onRemove, onToggleWhatsapp, onRename, inMergedPdf }: Props) {
   const isWa = item.preset === "whatsapp" && item.target === "mp4";
   const Icon = KIND_ICON[item.kind];
   const engine = useSyncExternalStore(engineStore.subscribe, engineStore.get, engineStore.get);
@@ -97,6 +101,32 @@ export default function QueueItemCard({ item, index, locked, onPickFormat, onRem
           </button>
         ) : null}
       </div>
+
+      {!converting && !inMergedPdf && item.target ? (
+        <label
+          className="mt-3 flex h-11 items-center gap-2 rounded-xl border border-slate-800 bg-[#0F172A] pl-3 pr-3 transition-colors duration-150 focus-within:border-blue-500/70"
+        >
+          <Pencil className="size-4 shrink-0 text-slate-500" />
+          <input
+            data-testid={`output-name-input-${index}`}
+            value={item.outName}
+            onChange={(e) => onRename(item.id, e.target.value)}
+            placeholder={defaultNameFor(item)}
+            disabled={locked}
+            maxLength={140}
+            aria-label="Nome del file convertito"
+            enterKeyHint="done"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+            className="min-w-0 flex-1 bg-transparent text-base text-slate-100 outline-none placeholder:text-slate-500 disabled:opacity-60"
+          />
+          <span data-testid={`output-name-ext-${index}`} className="shrink-0 font-mono text-xs font-bold text-slate-400">
+            .{item.target}
+          </span>
+        </label>
+      ) : null}
 
       {item.kind === "video" && !converting && item.status !== "done" ? (
         <button

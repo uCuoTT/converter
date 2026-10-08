@@ -68,8 +68,14 @@ export async function saveToDevice(r: ConvertResult) {
 }
 
 export async function saveAllToDevice(results: ConvertResult[]) {
+  // same name twice would overwrite on Android / get "(1)" suffixes in browsers -> number duplicates
+  const used = new Map<string, number>();
   for (const r of results) {
-    await saveToDevice(r);
+    const n = used.get(r.name) ?? 0;
+    used.set(r.name, n + 1);
+    const dot = r.name.lastIndexOf(".");
+    const name = n === 0 ? r.name : `${r.name.slice(0, dot)} (${n + 1})${r.name.slice(dot)}`;
+    await saveToDevice({ ...r, name });
     if (!isNative()) await new Promise((res) => setTimeout(res, 450)); // browsers throttle burst downloads
   }
 }

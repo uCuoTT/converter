@@ -123,9 +123,29 @@ export function defaultTarget(kind: MediaKind, file: File): TargetFormat | null 
 }
 
 export function outputName(name: string, target: TargetFormat, suffix = "convertito"): string {
+  return `${defaultBaseName(name, suffix)}.${target}`;
+}
+
+/** Default output name without extension, e.g. "vacanze_convertito". */
+export function defaultBaseName(name: string, suffix = "convertito"): string {
   const i = name.lastIndexOf(".");
   const base = (i > 0 ? name.slice(0, i) : name) || "file";
-  return `${base}_${suffix}.${target}`;
+  return `${base}_${suffix}`;
+}
+
+const BAD_CHARS = /[\\/:*?"<>|\u0000-\u001f]/g;
+
+/** Sanitizes a user-typed name: no forbidden chars, no leading dots, no duplicated extension, max 120 chars. */
+export function cleanBaseName(input: string, target: TargetFormat): string {
+  let s = input.replace(BAD_CHARS, "").replace(/\s+/g, " ").trim();
+  const ext = `.${target}`;
+  if (s.toLowerCase().endsWith(ext)) s = s.slice(0, -ext.length).trim();
+  return s.replace(/^\.+/, "").slice(0, 120).trim();
+}
+
+/** Final file name: the user's name if valid, otherwise the default one, plus the format extension. */
+export function finalName(custom: string, fallbackBase: string, target: TargetFormat): string {
+  return `${cleanBaseName(custom, target) || fallbackBase}.${target}`;
 }
 
 /** e.g. "-63%" / "+12%" — output size vs input size. */
