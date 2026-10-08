@@ -95,3 +95,9 @@ frontend/android/.gradle/
 frontend/android/local.properties
 .android-toolchain/jdk/lib/modules
 .android-toolchain/gradle/caches/8.11.1/transforms/9b699377ca55e6911830802b92419802/transformed/instrumented/instrumented-kotlin-compiler-embeddable-1.9.24.jar
+.env
+.env.*
+*.env
+credentials.json
+*.key
+.credentials
