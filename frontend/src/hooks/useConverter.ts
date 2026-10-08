@@ -1,7 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  ALLOWED,
+  CANVAS_TARGETS,
+  allowedTargets,
   defaultTarget,
   detectKind,
   formatBytes,
@@ -121,7 +122,7 @@ export function useConverter() {
   const applyToAll = useCallback((target: TargetFormat, preset: VideoPreset = "standard") => {
     setItems((prev) =>
       prev.map((i) => {
-        if (!ALLOWED[i.kind].includes(target) || i.status === "converting") return i;
+        if (!allowedTargets(i.kind, i.file).includes(target) || i.status === "converting") return i;
         const p: VideoPreset = i.kind === "video" ? preset : "standard";
         return i.target === target && i.preset === p ? i : { ...resetItem(i), target, preset: p };
       }),
@@ -219,7 +220,7 @@ export function useConverter() {
         };
         try {
           let blob: Blob;
-          if (it.kind === "image") {
+          if (it.kind === "image" && CANVAS_TARGETS.includes(target)) {
             patch([it.id], { stage: target === "pdf" ? "Impaginazione PDF…" : "Elaborazione immagine…" });
             blob = await runImageJob(
               target === "pdf"
@@ -228,7 +229,11 @@ export function useConverter() {
               onP,
             );
           } else {
-            blob = await convertMedia(it.file, target, onP, (stage) => patch([it.id], { stage }), it.preset);
+            blob = await convertMedia(it.file, target, onP, (stage) => patch([it.id], { stage }), {
+              preset: it.preset,
+              maxSide: options.maxSide,
+              fromImage: it.kind === "image",
+            });
           }
           const name = outputName(it.file.name, target, it.preset === "whatsapp" && target === "mp4" ? "whatsapp" : "convertito");
           patch([it.id], { status: "done", progress: 1, stage: "Completato", result: { blob, name, url: URL.createObjectURL(blob) } });

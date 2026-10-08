@@ -6,7 +6,12 @@ Single route `/` (catch-all `*`) -> `src/pages/Converter.tsx`. See `frontend/PWA
 ## Flows
 1. "Seleziona File" (`file-input`, all media) or "Apri Galleria" (`gallery-input`, image/video) -> queue (multi-file).
 2. Each queue item has a format chip -> bottom sheet (`format-bottom-sheet`) with formats allowed for its kind:
-   - image -> JPG, PNG, WEBP, PDF ; video -> MP4, WEBM, MP3, WAV, AAC, M4A ; audio -> MP3, WAV, AAC, M4A
+   - video -> MP4, WEBM, MKV, MOV, AVI, FLV, 3GP, WMV, MPEG + audio extraction (all audio formats) + GIF (max 15s, 12fps, 480px) + frame JPG/PNG
+   - audio -> MP3, WAV, AAC, M4A, OGG, OPUS, FLAC, AIFF, WMA, AC3, M4R (iPhone ringtone, first 40s)
+   - image -> JPG, PNG, WEBP, GIF, BMP, TIFF, ICO (256px), PDF ; animated GIF input also -> MP4, WEBM
+   - Engines: Canvas/JS worker for JPG/PNG/WEBP/BMP/TIFF/ICO/PDF (`CANVAS_TARGETS`), FFmpeg for everything else.
+   - OGV intentionally NOT offered: libtheora in @ffmpeg/core 0.12.10 crashes the wasm (function signature mismatch).
+   - If FFmpeg crashes (wasm abort) the instance is discarded so following jobs reload a fresh engine instead of hanging.
    - "Applica a tutti i file compatibili" applies the format to every compatible item.
 3. >=2 images targeting PDF -> "Unisci in PDF multipagina A4" checkbox (default ON) -> one merged PDF (`merged-pdf-result`).
 4. "Converti Ora (n)" -> sequential conversion with per-item + overall progress; cancel button stops (terminates workers).
@@ -34,3 +39,5 @@ Capacitor 7 wrapper (`frontend/android`, `capacitor.config.json`). `yarn build:a
 Native save -> Documents/ConvertiTutto via @capacitor/filesystem; share via @capacitor/share. No SW in native.
 Toolchain at /app/.android-toolchain (ARM64 host, aapt2 override in android/gradle.properties). See frontend/PWA.md.
 Pending (user deferred): Gemini integration.
+
+Header shows only logo + 'ConvertiTutto' (+ Installa button when the browser offers PWA install).

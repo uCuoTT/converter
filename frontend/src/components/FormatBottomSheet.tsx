@@ -1,6 +1,6 @@
 import { Check, MessageCircle } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { ALLOWED, FORMATS, GROUP_LABEL, type FormatGroup, type TargetFormat } from "@/lib/formats";
+import { FORMATS, allowedTargets, groupLabel, type FormatGroup, type TargetFormat } from "@/lib/formats";
 import type { VideoPreset } from "@/lib/ffmpeg";
 import type { QueueItem } from "@/hooks/useConverter";
 
@@ -14,7 +14,7 @@ interface Props {
 const GROUP_ORDER: FormatGroup[] = ["video", "audio", "image"];
 
 export default function FormatBottomSheet({ item, onClose, onSelect, onApplyAll }: Props) {
-  const allowed = item ? ALLOWED[item.kind] : [];
+  const allowed = item ? allowedTargets(item.kind, item.file) : [];
   const isWa = item?.preset === "whatsapp" && item.target === "mp4";
 
   return (
@@ -33,8 +33,10 @@ export default function FormatBottomSheet({ item, onClose, onSelect, onApplyAll 
           if (!opts.length) return null;
           return (
             <section key={g} className="mb-5">
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">{GROUP_LABEL[g]}</h3>
-              {g === "video" ? (
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                {item ? groupLabel(g, item.kind) : g}
+              </h3>
+              {g === "video" && item?.kind === "video" ? (
                 <button
                   type="button"
                   data-testid="format-option-whatsapp"
@@ -54,7 +56,7 @@ export default function FormatBottomSheet({ item, onClose, onSelect, onApplyAll 
                   {isWa ? <Check className="size-4 text-emerald-300" /> : null}
                 </button>
               ) : null}
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-3 gap-2">
                 {opts.map((f) => {
                   const active = item?.target === f && !isWa;
                   return (
@@ -66,15 +68,15 @@ export default function FormatBottomSheet({ item, onClose, onSelect, onApplyAll 
                         if (item) onSelect(item.id, f);
                         onClose();
                       }}
-                      className={`relative flex min-h-[72px] flex-col items-start justify-center rounded-2xl border px-4 py-3 text-left transition-[transform,border-color,background-color] duration-150 active:scale-[0.97] ${
+                      className={`relative flex min-h-[68px] flex-col items-start justify-center rounded-2xl border px-3 py-2.5 text-left transition-[transform,border-color,background-color] duration-150 active:scale-[0.97] ${
                         active
                           ? "border-blue-500 bg-blue-600/20"
                           : "border-slate-700 bg-[#131B2A] hover:border-slate-500"
                       }`}
                     >
-                      <span className="font-mono text-lg font-bold text-white">{FORMATS[f].label}</span>
-                      <span className="text-xs leading-snug text-slate-400">{FORMATS[f].hint}</span>
-                      {active ? <Check className="absolute right-3 top-3 size-4 text-blue-400" /> : null}
+                      <span className="font-mono text-base font-bold text-white">{FORMATS[f].label}</span>
+                      <span className="line-clamp-2 text-[11px] leading-snug text-slate-400">{FORMATS[f].hint}</span>
+                      {active ? <Check className="absolute right-2 top-2 size-4 text-blue-400" /> : null}
                     </button>
                   );
                 })}

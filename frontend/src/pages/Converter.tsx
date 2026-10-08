@@ -134,7 +134,7 @@ export default function Converter() {
                   {Object.values(FORMATS)
                     .filter((f) => f.group === g)
                     .map((f) => (
-                      <span key={f.id} className="rounded-lg border border-slate-800 bg-[#131B2A] px-3 py-1.5 font-mono text-xs font-bold text-slate-200">
+                      <span key={f.id} data-testid={`supported-format-${f.id}`} className="rounded-lg border border-slate-800 bg-[#131B2A] px-3 py-1.5 font-mono text-xs font-bold text-slate-200">
                         {f.label}
                       </span>
                     ))}

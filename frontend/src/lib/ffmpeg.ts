@@ -124,28 +124,75 @@ export function cancelFFmpeg() {
   setEngine({ phase: "idle", mode: null, download: 0 });
 }
 
-const CODEC_ARGS: Record<string, string[]> = {
-  // mobile-tuned: fastest presets, modest bitrates -> less RAM/CPU on phones
-  mp4: ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart"],
-  webm: ["-c:v", "libvpx", "-deadline", "realtime", "-cpu-used", "8", "-b:v", "1M", "-c:a", "libopus", "-b:a", "96k"],
+/** scale filter: longest side ≤ max, never upscale, both sides even (required by yuv420p encoders). */
+export const fitScale = (max: number) =>
+  `scale='if(gt(iw,ih),trunc(min(${max},iw)/2)*2,-2)':'if(gt(iw,ih),-2,trunc(min(${max},ih)/2)*2)'`;
+const EVEN = "scale=trunc(iw/2)*2:trunc(ih/2)*2";
+const NO_SUBS = ["-sn", "-dn"]; // subtitle/data streams often can't be remuxed -> drop them
+// mobile-tuned: fastest presets, modest bitrates -> less RAM/CPU on phones
+const H264 = ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p"];
+const AAC128 = ["-c:a", "aac", "-b:a", "128k"];
+const GIF_PALETTE = "split[a][b];[a]palettegen[p];[b][p]paletteuse";
+
+const CODEC_ARGS: Partial<Record<TargetFormat, string[]>> = {
+  // video
+  mp4: [...NO_SUBS, "-vf", EVEN, ...H264, ...AAC128, "-movflags", "+faststart"],
+  mov: [...NO_SUBS, "-vf", EVEN, ...H264, ...AAC128, "-movflags", "+faststart"],
+  mkv: [...NO_SUBS, "-vf", EVEN, ...H264, ...AAC128],
+  flv: [...NO_SUBS, "-vf", EVEN, ...H264, ...AAC128, "-ar", "44100"],
+  webm: [...NO_SUBS, "-c:v", "libvpx", "-deadline", "realtime", "-cpu-used", "8", "-b:v", "1M", "-pix_fmt", "yuv420p", "-c:a", "libopus", "-b:a", "96k"],
+  avi: [...NO_SUBS, "-vf", EVEN, "-c:v", "mpeg4", "-q:v", "5", "-c:a", "libmp3lame", "-b:a", "160k"],
+  "3gp": [...NO_SUBS, "-vf", fitScale(640), "-c:v", "libx264", "-profile:v", "baseline", "-preset", "ultrafast", "-crf", "30",
+    "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "64k", "-ac", "1", "-ar", "22050"],
+  wmv: [...NO_SUBS, "-vf", EVEN, "-c:v", "wmv2", "-b:v", "2M", "-c:a", "wmav2", "-b:a", "160k"],
+  mpeg: [...NO_SUBS, "-vf", EVEN, "-r", "30", "-c:v", "mpeg2video", "-q:v", "4", "-c:a", "mp2", "-b:a", "192k"],
+  // audio (from audio or extracted from video)
   mp3: ["-vn", "-c:a", "libmp3lame", "-b:a", "192k"],
   wav: ["-vn", "-c:a", "pcm_s16le"],
   aac: ["-vn", "-c:a", "aac", "-b:a", "192k"],
   m4a: ["-vn", "-c:a", "aac", "-b:a", "192k"],
+  ogg: ["-vn", "-c:a", "libvorbis", "-q:a", "5"],
+  opus: ["-vn", "-c:a", "libopus", "-b:a", "128k"],
+  flac: ["-vn", "-c:a", "flac"],
+  aiff: ["-vn", "-c:a", "pcm_s16be"],
+  wma: ["-vn", "-c:a", "wmav2", "-b:a", "192k"],
+  ac3: ["-vn", "-c:a", "ac3", "-b:a", "384k"],
+  m4r: ["-vn", "-t", "40", "-c:a", "aac", "-b:a", "192k", "-f", "ipod"],
+  // still frame from a video: most representative frame among the first ones
+  jpg: ["-an", "-vf", "thumbnail=60", "-frames:v", "1", "-q:v", "2"],
+  png: ["-an", "-vf", "thumbnail=60", "-frames:v", "1"],
 };
 
 export type VideoPreset = "standard" | "whatsapp";
 
+export interface MediaOptions {
+  preset?: VideoPreset;
+  /** longest side for image -> GIF (photo settings), null = original */
+  maxSide?: number | null;
+  /** source is a still/animated image (GIF input) rather than a video */
+  fromImage?: boolean;
+}
+
 /** "Comprimi per WhatsApp": long side ≤ 1280 (720p), ≤ 30fps, capped bitrate, AAC 96k stereo. */
 const WHATSAPP_ARGS = [
-  "-vf", "scale='if(gt(iw,ih),min(1280,iw),-2)':'if(gt(iw,ih),-2,min(1280,ih))'",
+  ...NO_SUBS,
+  "-vf", fitScale(1280),
   "-fpsmax", "30",
   "-c:v", "libx264", "-preset", "superfast", "-crf", "30", "-maxrate", "1200k", "-bufsize", "2400k",
   "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k", "-ac", "2", "-movflags", "+faststart",
 ];
 
-export function buildArgs(input: string, output: string, target: TargetFormat, preset: VideoPreset = "standard"): string[] {
-  const codec = preset === "whatsapp" && target === "mp4" ? WHATSAPP_ARGS : CODEC_ARGS[target];
+export function buildArgs(input: string, output: string, target: TargetFormat, opts: MediaOptions = {}): string[] {
+  let codec: string[] | undefined;
+  if (target === "gif") {
+    codec = opts.fromImage
+      ? ["-vf", `${fitScale(opts.maxSide ?? 4096)}:flags=lanczos,${GIF_PALETTE}`, "-loop", "0"]
+      : ["-t", "15", "-an", "-vf", `fps=12,${fitScale(480)}:flags=lanczos,${GIF_PALETTE}`, "-loop", "0"];
+  } else if (opts.preset === "whatsapp" && target === "mp4") {
+    codec = WHATSAPP_ARGS;
+  } else {
+    codec = CODEC_ARGS[target];
+  }
   if (!codec) throw new Error(`Formato ${target} non supportato da FFmpeg`);
   return ["-i", input, ...codec, output];
 }
@@ -156,7 +203,7 @@ export async function convertMedia(
   target: TargetFormat,
   onProgress: (p: number) => void,
   onStage: (s: string) => void,
-  preset: VideoPreset = "standard",
+  opts: MediaOptions = {},
 ): Promise<Blob> {
   if (state.phase !== "ready") onStage("Avvio motore FFmpeg…");
   const ff = await getFFmpeg();
@@ -186,7 +233,18 @@ export async function convertMedia(
       inPath = `${dir}/input.${extOf(file.name) || "bin"}`;
       await ff.writeFile(inPath, await fetchFile(file));
     }
-    const code = await ff.exec(buildArgs(inPath, outPath, target, preset));
+    let code: number;
+    try {
+      code = await ff.exec(buildArgs(inPath, outPath, target, opts));
+    } catch (err) {
+      // wasm abort / RuntimeError: this engine instance is dead and would hang every next job.
+      // Drop it (frees all its memory); the next conversion loads a fresh one from cache.
+      if (instance === ff) cancelFFmpeg();
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        /terminate/i.test(msg) ? msg : `Il motore FFmpeg si è interrotto con ${FORMATS[target].label}: prova un altro formato`,
+      );
+    }
     if (code !== 0) {
       const hint = logs.filter((l) => /error|invalid|not|unsupported/i.test(l)).slice(-2).join(" · ");
       throw new Error(hint ? `FFmpeg: ${hint}` : `FFmpeg ha terminato con codice ${code}`);
