@@ -1,0 +1,178 @@
+{
+  "theme": "dark",
+  "project_name": "ConvertiTutto (Universal File Converter PWA)",
+  "app_archetype": "ARCHETYPE 2: THE PERFORMANCE PRO & TACTICAL MINIMALISM (Mobile-First Utility PWA)",
+  "context_type": "mobile_web_app",
+  "language": "it",
+  "colors": {
+    "surfaces": [
+      {
+        "name": "page",
+        "kind": "solid",
+        "bg": "#0B0F17",
+        "on_bg": "#F8FAFC",
+        "on_bg_muted": "#94A3B8"
+      },
+      {
+        "name": "panel",
+        "kind": "solid",
+        "bg": "#131B2A",
+        "on_bg": "#F8FAFC",
+        "on_bg_muted": "#94A3B8",
+        "roles": {
+          "border": "#1E293B",
+          "border_active": "#3B82F6",
+          "success": "#10B981",
+          "warning": "#F59E0B",
+          "error": "#EF4444"
+        }
+      },
+      {
+        "name": "bottom_sheet",
+        "kind": "solid",
+        "bg": "#0F172A",
+        "on_bg": "#F8FAFC",
+        "on_bg_muted": "#94A3B8",
+        "roles": {
+          "border": "#334155",
+          "handle": "#475569"
+        }
+      },
+      {
+        "name": "card_elevated",
+        "kind": "solid",
+        "bg": "#1A2436",
+        "on_bg": "#FFFFFF",
+        "on_bg_muted": "#A0ABC0"
+      },
+      {
+        "name": "hero_banner",
+        "kind": "gradient",
+        "contrast_against": "#0B0F17",
+        "guarantee": "scrim: linear-gradient(180deg, #131B2A 0%, #0B0F17 100%)",
+        "on_bg": "#FFFFFF",
+        "on_bg_muted": "#94A3B8"
+      },
+      {
+        "name": "badge_offline",
+        "kind": "solid",
+        "bg": "#064E3B",
+        "on_bg": "#D1FAE5",
+        "on_bg_muted": "#6EE7B7"
+      },
+      {
+        "name": "badge_engine",
+        "kind": "solid",
+        "bg": "#1E1B4B",
+        "on_bg": "#E0E7FF",
+        "on_bg_muted": "#A5B4FC"
+      }
+    ],
+    "accent": "#2563EB",
+    "on_accent": "#FFFFFF",
+    "accent_hover": "#1D4ED8",
+    "secondary_accent": "#06B6D4",
+    "on_secondary_accent": "#042F2E"
+  },
+  "typography": {
+    "font_heading": "'Space Grotesk Variable', sans-serif",
+    "font_sans": "'Plus Jakarta Sans Variable', sans-serif",
+    "font_mono": "'JetBrains Mono Variable', monospace",
+    "scale_px": {
+      "display": 36,
+      "h1": 30,
+      "h2": 24,
+      "h3": 20,
+      "body": 16,
+      "caption": 14
+    },
+    "scale_classes": {
+      "display": "text-3xl sm:text-4xl font-extrabold tracking-tight",
+      "h1": "text-2xl sm:text-3xl font-bold tracking-tight",
+      "h2": "text-xl sm:text-2xl font-bold tracking-tight",
+      "h3": "text-lg sm:text-xl font-semibold",
+      "body": "text-base leading-relaxed",
+      "caption": "text-sm text-slate-400"
+    }
+  },
+  "entry_surfaces": {
+    "/": "single-screen tactical converter hero with status badges at top, primary pulsantone CTA center, sticky conversion queue and bottom sheet format selector"
+  },
+  "visual_enhancers": {
+    "glow_effect": "shadow-[0_0_24px_rgba(37,99,235,0.25)]",
+    "tactical_border": "border border-slate-800/80 hover:border-blue-500/50 transition-colors",
+    "pulsing_indicator": "animate-pulse h-2.5 w-2.5 rounded-full bg-emerald-400",
+    "glass_header": "backdrop-blur-xl bg-slate-950/80 border-b border-slate-800/70"
+  },
+  "layouts": {
+    "container": "max-w-md mx-auto min-h-screen px-4 pb-28 pt-4 flex flex-col justify-between",
+    "header": "sticky top-0 z-40 py-3 px-4 flex items-center justify-between rounded-2xl bg-slate-900/90 border border-slate-800/80 backdrop-blur-md mb-4",
+    "pulsantone_hero": "w-full py-8 px-6 rounded-3xl bg-gradient-to-b from-blue-600 to-blue-700 text-white font-bold text-xl flex flex-col items-center justify-center gap-3 shadow-lg shadow-blue-600/30 active:scale-[0.98] transition-transform cursor-pointer border border-blue-400/30",
+    "queue_list": "flex flex-col gap-3 my-4",
+    "bottom_action_bar": "fixed bottom-0 left-0 right-0 p-4 bg-slate-950/95 border-t border-slate-800/90 backdrop-blur-xl max-w-md mx-auto z-40"
+  },
+  "motion": {
+    "press_scale": "active:scale-[0.97] transition-all duration-150 ease-out",
+    "sheet_transition": "transition-transform duration-300 ease-out",
+    "progress_animation": "transition-all duration-300 ease-in-out",
+    "fade_in": "animate-in fade-in duration-200"
+  },
+  "accessibility": {
+    "wcag_compliance": "WCAG AA (minimum 4.5:1 text contrast for all body/caption strings)",
+    "aria_labels": "All file upload triggers, remove buttons, and sheet toggles include explicit aria-labels and data-testids",
+    "touch_targets": "Minimum touch target height of 48px (pulsantoni at 64px+ height)",
+    "reduced_motion": "Respects prefers-reduced-motion for all CSS transitions"
+  },
+  "component_hierarchy": [
+    {
+      "name": "HeaderStatus",
+      "path": "frontend/src/components/HeaderStatus.tsx",
+      "description": "App bar with app title 'ConvertiTutto', offline badge, and WASM/WebWorker multithread hardware acceleration status"
+    },
+    {
+      "name": "PulsantoneFilePicker",
+      "path": "frontend/src/components/PulsantoneFilePicker.tsx",
+      "description": "Large touch-friendly hero button with camera/gallery/files icon and drag-and-drop support"
+    },
+    {
+      "name": "ConversionQueue",
+      "path": "frontend/src/components/ConversionQueue.tsx",
+      "description": "List of queued/processed files with per-file size, type badge, format selector trigger, and progress indicator"
+    },
+    {
+      "name": "FormatBottomSheet",
+      "path": "frontend/src/components/FormatBottomSheet.tsx",
+      "description": "Tactical bottom sheet with categorized output formats (Video: MP4, WEBM; Audio: MP3, WAV, AAC, M4A; Immagini/PDF: JPG, PNG, WEBP, PDF Multipage A4)"
+    },
+    {
+      "name": "ProcessingEngineView",
+      "path": "frontend/src/components/ProcessingEngineView.tsx",
+      "description": "Real-time conversion progress bar, speed indicator, stage label, and cancel button"
+    },
+    {
+      "name": "DownloadActions",
+      "path": "frontend/src/components/DownloadActions.tsx",
+      "description": "Big 'Salva nel telefono' button, ZIP bundle download, and share API integration"
+    }
+  ],
+  "image_urls": {
+    "app_icon_visual": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80",
+    "offline_shield_visual": "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=400&q=80"
+  },
+  "instructions_to_main_agent": [
+    "Build a 100% client-side mobile-first PWA file converter tailored for vertical screens (max-w-md on desktop).",
+    "UI language MUST be Italian: 'ConvertiTutto', 'Seleziona File', 'Formato Destinazione', 'Converti Ora', 'Salva nel telefono', 'Unisci in PDF multipagina A4', '100% Locale & Privato'.",
+    "Utilize FFmpeg.wasm multi-thread / single-thread fallback for Audio/Video conversion with Web Workers so UI stays butter-smooth.",
+    "Utilize Canvas API + jsPDF for Image/PDF conversions (supports JPG, PNG, WEBP and combining multiple images into a clean A4 multi-page PDF document).",
+    "Use Shadcn Sheet component for the Format Picker bottom sheet (side='bottom') with tactile pill selectors.",
+    "Provide big touch targets ('pulsantoni') with distinct tactile press animations and high contrast dark theme (#0B0F17 base, #131B2A panel, #2563EB accent).",
+    "Ensure complete offline functionality: no backend upload calls, all conversions happen in browser memory using Blobs and Object URLs.",
+    "Include data-testid on every interactive element (e.g. data-testid='select-file-btn', data-testid='format-sheet-trigger', data-testid='convert-now-btn', data-testid='save-to-phone-btn')."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": {
+    "avoid_ai_slop": "Use high-contrast tactical dark styling with subtle 1px slate-800 borders and vibrant cobalt/cyan accents. Avoid generic gray gradients.",
+    "spacing": "Ample mobile tap padding (p-4 to p-6) with safe-area spacing for bottom navigation bars.",
+    "interaction": "Micro-haptic visual feedback via motion/react active states and instant Sonner toast alerts on complete/error.",
+    "fonts": "Space Grotesk for bold tactical headings and Plus Jakarta Sans for high-legibility body/data."
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "ConvertiTutto – Universal File Converter",
+  "short_name": "ConvertiTutto",
+  "description": "Converti video, audio, immagini e PDF sul telefono. 100% locale e offline.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B0F17",
+  "theme_color": "#0B0F17",
+  "lang": "it",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
